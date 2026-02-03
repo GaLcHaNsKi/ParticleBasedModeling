@@ -1,42 +1,41 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
-#icnlude "math.h"
+#include <cstdlib>
+#include <cmath>
+#include "particle.cpp"
+#include "pos.cpp"
 using namespace std;
 
-// CONSTANTS
-// AIR
-const double RO_AIR = 12.3,
-             U_AIR = 123.6,
-             T_AIR = 300,
-             P_AIR = 101321.3,
-// PARTICLES
-             RO_PAR = 100.3,
-             U_PAR = 125.3,
-             T_PAR = 301,
-             AVERAGE_RADIUS = 0.0001;
-
 // OTHER
-const double Myu = 1.3,
-             Re = 2 * AVERAGE_RADIUS * RO_AIR * abs (U_AIR - U_PAR) / Myu,
-             Cd = pow( 0.325 + sqrt(0.124 + 24 / Re), 2);
-
-struct pos {
-    double x;
-    double y;
-};
-
-class Particle {
-    pos position;
-    double mass;
-    double velocity;
-
-    double calculateForce() {
-        return M_PI*AVERAGE_RADIUS*AVERAGE_RADIUS/2 * Cd * RO_AIR * sqrt(pow(U_AIR - this.velocity, 2)) * (U_AIR - this.velocity)
-    }
-};
-    
-vector<pos> positions;
+const int NUM_PARTICLES = []() {
+    const char* env = std::getenv("NUM_PARTICLES");
+    return env ? std::atoi(env) : 100;
+}();
 
 int main() {
-    
+    srand(time(0));
+
+    vector<Particle> particles(NUM_PARTICLES);
+
+    for (int i = 0; i < NUM_PARTICLES; i++) {
+        double x = (rand() % 1000) / 100.0;
+        double y = (rand() % 1000) / 100.0;
+        double Vx = (rand() % 200) / 10.0;
+        double Vy = (rand() % 200) / 10.0;
+
+        particles[i] = Particle(x, y, Vx, Vy);
+
+        vector<pos> trajectory = particles[i].calclulateTrajectory();
+        printf("Particle %d trajectory calculated!\n", i+1);
+
+        // save trajectory to file
+        string filename = "./trajectories/trajectory_" + to_string(i) + ".txt";
+
+        ofstream file(filename);
+        for (const auto& pos : trajectory) {
+            file << pos.x << " " << pos.y << endl;
+        }
+        file.close();
+    }
 }
