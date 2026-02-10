@@ -1,11 +1,21 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
+
+#ifndef STEPS
+#define STEPS 1500
+#endif
+
 #include <cmath>
 #include <vector>
 #include "constants.cpp"
 #include "pos.cpp"
+#include <array>
+#include <boost/numeric/odeint.hpp>
+
+using namespace boost::numeric::odeint;
 using namespace std;
+using state_type = std::array<double, 4>;
 
 class Particle {
 public:
@@ -15,10 +25,9 @@ public:
     double radius;
     double Re;
     double Cd;
-    double Force;
     double norma;
 
-    Particle() : radius(0), mass(0), Re(0), Cd(0), Force(0), norma(0) {
+    Particle() : radius(0), mass(0), Re(0), Cd(0), norma(0) {
         position = {0, 0};
         velocity = {0, 0};
     }
@@ -29,41 +38,62 @@ public:
         this->velocity.x = Vx;
         this->velocity.y = Vy;
 
-        this->norma = sqrt(pow(U_AIR.x - velocity.x, 2) + pow(U_AIR.y - velocity.y, 2));
-
         this->radius = MIN_RADIUS + (rand() % 100) / 1e6;
         this->mass = (4.0/3.0) * M_PI * pow(this->radius, 3) * RO_PAR;
     }
 
     void calculateReCdForce() {
-        this->norma = sqrt(pow(U_AIR.x - velocity.x, 2) + pow(U_AIR.y - velocity.y, 2));
-
-        this->Re = (2 * RO_AIR * norma * this->radius) / Myu;
-        this->Cd = pow(0.325 + sqrt(0.124 + 24 / this->Re), 2);
-        this->Force = M_PI*radius*radius/2 * Cd * RO_AIR * norma * norma;
     }
 
-    vector<pos> calclulateTrajectory() {
+    void particleSystem(const state_type &y, state_type &dydt, double t) {
+        // y = { qx, qy, vx, vy }
+
+        double qx = y[0];
+        double qy = y[1];
+        double vx = y[2];
+        double vy = y[3];
+
+        auto [ ux, uy ] = U_AIR(qx, qy);
+
+        norma = sqrt(pow(ux - vx, 2) + pow(uy - vy, 2));
+        Re = (2 * RO_AIR * norma * radius) / Myu;
+        Cd = pow(0.325 + sqrt(0.124 + 24 / Re), 2);
+
+        double K = M_PI*radius*radius/2 * Cd * RO_AIR / mass;
+        dydt[0] = vx;
+        dydt[1] = vy;
+        dydt[2] = K * norma * (ux - vx);
+        dydt[3] = K * norma * (uy - vy);
+    }
+
+    pair<vector<pos>, vector<pos>> calclulateTrajectory() {
         vector<pos> trajectory;
+        vector<pos> velocities;
         pos current_position = this->position;
         pos current_velocity = this->velocity;
 
-        for (int i = 0; i < 10; i++) {
-            calculateReCdForce();
-            double force = this->Force;
+        // Calculating with RK4
+        runge_kutta4<state_type> stepper;
+        state_type y = {position.x, position.y, velocity.x, velocity.y};
 
-            // Update velocity
-            current_velocity.x += (force / mass) * (U_AIR.x - current_velocity.x);
-            current_velocity.y += (force / mass) * (U_AIR.y - current_velocity.y);
+        double t  = 0.0;
+        double dt = 1e-3;
+        
+        for (size_t i = 0; i < STEPS; ++i) {
+            stepper.do_step(
+                [this](const state_type &y, state_type &dydt, double t) {
+                    this->particleSystem(y, dydt, t);
+                },
+                y, t, dt
+            );
+            t += dt;
 
-            // Update position
-            current_position.x += current_velocity.x * 0.01; // time step
-            current_position.y += current_velocity.y * 0.01;
-
-            trajectory.push_back(current_position);
+            // printf("Time: %f, Position: (%f, %f), Velocity: (%f, %f)\n", t, y[0], y[1], y[2], y[3]);
+            trajectory.push_back({y[0], y[1]});
+            velocities.push_back({y[2], y[3]});
         }
-
-        return trajectory;
+        
+        return {trajectory, velocities};
     }
 };
 
