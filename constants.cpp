@@ -49,4 +49,14 @@ const double RO_AIR = 1.225, // in kg/m^3
     };
 #endif
 
+#if U_FUNCTION == 4
+    // VARIABLE WIND FIELD #3
+    pos U_AIR(double x, double y) {
+        double Ux = -sqrt(x*x + y*y) * y;
+        double Uy = sqrt(x*x + y*y) * x;
+
+        return {Ux, Uy};
+    };
+#endif
+
 #endif

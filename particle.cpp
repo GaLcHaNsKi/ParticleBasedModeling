@@ -42,9 +42,6 @@ public:
         this->mass = (4.0/3.0) * M_PI * pow(this->radius, 3) * RO_PAR;
     }
 
-    void calculateReCdForce() {
-    }
-
     void particleSystem(const state_type &y, state_type &dydt, double t) {
         // y = { qx, qy, vx, vy }
 
