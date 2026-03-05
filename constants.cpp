@@ -1,7 +1,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#include "pos.cpp"
+#include "structures.cpp"
 #include <cmath>
 #include <cstdlib>
 

@@ -1,15 +1,10 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-
-#ifndef STEPS
-#define STEPS 1500
-#endif
-
 #include <cmath>
 #include <vector>
 #include "constants.cpp"
-#include "pos.cpp"
+#include "structures.cpp"
 #include <array>
 #include <boost/numeric/odeint.hpp>
 
@@ -63,7 +58,7 @@ public:
         dydt[3] = K * norma * (uy - vy);
     }
 
-    pair<vector<pos>, vector<pos>> calclulateTrajectory() {
+    pair<vector<pos>, vector<pos>> calclulateTrajectory(unsigned int STEPS) {
         vector<pos> trajectory;
         vector<pos> velocities;
         pos current_position = this->position;
@@ -76,7 +71,7 @@ public:
         double t  = 0.0;
         double dt = 1e-3;
         
-        for (size_t i = 0; i < STEPS; ++i) {
+        for (unsigned int i = 0; i < STEPS; ++i) {
             stepper.do_step(
                 [this](const state_type &y, state_type &dydt, double t) {
                     this->particleSystem(y, dydt, t);

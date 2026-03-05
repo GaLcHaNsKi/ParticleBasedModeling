@@ -2,3 +2,4 @@ trajectories
 bin
 __pycache__
 *.out
+density

@@ -1,85 +1,81 @@
 # density_video.py
-# Рисует графики плотности частиц, после по ним создаётся видео.
+# Читает готовые 60x60 матрицы плотности и делает видео
 
 import os
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
-from dotenv import load_dotenv
 import time
-
-# Load variables from .env file
-load_dotenv()
-
-PARTICLE_NUM = int(os.getenv("PARTICLES_NUM", "0"))
 
 X_FROM = -30
 X_TO = 30
 Y_FROM = -30
 Y_TO = 30
-VMAX = 100
 
-plt.clf()  # Очищаем график для рисования плотности
+GRID_SIZE = 60
+STEPS = 5000 // 5
+VMAX = int(input("Enter the maximum density value: "))
+FPS = 30
 
 print("Making video...")
 
-L = np.load(f"./bin/trajectory_0.npy", mmap_mode='r').shape[0] // 9  # Количество шагов в траектории
-
 fig, ax = plt.subplots()
 
-H, xedges, yedges, img = ax.hist2d(
-    [], [],
-    bins=50,
-    range=[[X_FROM, X_TO], [Y_FROM, Y_TO]],
-    cmap='viridis',
+density = np.zeros((GRID_SIZE, GRID_SIZE), dtype=np.float32)
+
+img = ax.imshow(
+    density,
+    origin="lower",
+    extent=[X_FROM, X_TO, Y_FROM, Y_TO],
+    cmap="viridis",
     vmin=0,
-    vmax=VMAX
+    vmax=VMAX,
+    interpolation="nearest"
 )
 
 cbar = fig.colorbar(img, ax=ax)
 cbar.set_label("Particle Density")
 
+ax.set_xlim(X_FROM, X_TO)
+ax.set_ylim(Y_FROM, Y_TO)
+
 start = time.time()
 
+
 def update(step):
-    ax.clear()
-    
-    ax.set_xlim(X_FROM, X_TO)
-    ax.set_ylim(Y_FROM, Y_TO)
-    
-    # Собираем все координаты частиц на данном шаге
-    x_coords = np.empty(PARTICLE_NUM, dtype=np.float32)
-    y_coords = np.empty(PARTICLE_NUM, dtype=np.float32)
-    
-    for i in range(PARTICLE_NUM):
-        traj = np.load(f"./bin/trajectory_{i}.npy", mmap_mode='r')
-        row = traj[step]
-        x_coords[i] = row[0]
-        y_coords[i] = row[1]
-    
-    # Рисуем плотность частиц
-    H, _, _, img = ax.hist2d(
-        x_coords,
-        y_coords,
-        bins=50,
-        range=[[X_FROM, X_TO], [Y_FROM, Y_TO]],
-        cmap='viridis',
-        vmin=0,
-        vmax=VMAX
-    )
+    filename = f"./density/density_{step}.txt"
+    density = np.loadtxt(filename).reshape((GRID_SIZE, GRID_SIZE))
+
+    img.set_data(density)
 
     ax.set_title(f"Particle Density at Step {step}")
-    
+
     now = time.time()
-    remained_seconds = (L - step) * (now - start) / (step + 1)
-    remained_minutes = int(remained_seconds // 60)
-    remained_seconds_only = int(remained_seconds % 60)
-    
-    print(f"\r{step/L*100:.2f}% | Time elapsed: {int(now - start)//60}m {int(now - start)%60}s | Remaining time: {remained_minutes}m {remained_seconds_only}s", end="")
+    elapsed = now - start
 
-ani = animation.FuncAnimation(fig, update, frames=range(0, L))
+    percent = step / STEPS * 100
+    remaining = (STEPS - step) * elapsed / (step + 1)
 
-ani.save("density.mp4", fps=30, writer="ffmpeg")
+    rm = int(remaining // 60)
+    rs = int(remaining % 60)
+
+    em = int(elapsed // 60)
+    es = int(elapsed % 60)
+
+    print(
+        f"\r{percent:.2f}% | "
+        f"Elapsed: {em}m {es}s | "
+        f"Remaining: {rm}m {rs}s",
+        end=""
+    )
+
+ani = animation.FuncAnimation(
+    fig,
+    update,
+    frames=range(STEPS)
+)
+
+ani.save("density.mp4", fps=FPS, writer="ffmpeg")
 
 print("\r100.00%")
 print("Video saved as density.mp4!")
