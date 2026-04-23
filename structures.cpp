@@ -6,10 +6,4 @@ struct pos {
     double y;
 };
 
-struct q_at_square
-{
-    pos position;
-    unsigned int count;
-};
-
 #endif

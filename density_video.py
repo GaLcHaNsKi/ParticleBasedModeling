@@ -1,7 +1,6 @@
 # density_video.py
 # Читает готовые 60x60 матрицы плотности и делает видео
 
-import os
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -13,7 +12,8 @@ Y_FROM = -30
 Y_TO = 30
 
 GRID_SIZE = 60
-STEPS = 5000 // 5
+STEPS = 5000
+STEP = 10
 VMAX = int(input("Enter the maximum density value: "))
 FPS = 30
 
@@ -72,7 +72,7 @@ def update(step):
 ani = animation.FuncAnimation(
     fig,
     update,
-    frames=range(STEPS)
+    frames=range(0, STEPS, STEP)
 )
 
 ani.save("density.mp4", fps=FPS, writer="ffmpeg")
