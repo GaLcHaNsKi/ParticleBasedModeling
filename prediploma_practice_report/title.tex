@@ -1,0 +1,76 @@
+\documentclass[14pt,a4paper]{extarticle}
+\usepackage{iftex}
+\ifXeTeX
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont{Times New Roman}
+\setmonofont{DejaVu Sans Mono}
+\else
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\fi
+\usepackage[russian]{babel}
+\usepackage[top=20mm, bottom=20mm, left=30mm, right=15mm]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage[
+    pdftitle={Отчёт по преддипломной практике},
+    pdfauthor={Гальчанский Д.А.},
+    pdfcreator={xeLaTeX}
+]{hyperref}
+
+\begin{document}
+\setlength{\emergencystretch}{2em}
+\sloppy
+
+\begin{titlepage}
+\thispagestyle{empty}
+\singlespacing
+
+\begin{center}
+{\bfseries
+\MakeUppercase{Московский государственный университет}\\
+\MakeUppercase{имени М.В.\,Ломоносова}
+
+\vspace{0.6\baselineskip}
+ФИЛИАЛ В ГОРОДЕ ДУШАНБЕ
+
+\vspace{2\baselineskip}
+Естественно-научный факультет\\
+направление подготовки 01.03.02 Прикладная математика и информатика
+}
+
+\vspace{2\baselineskip}
+\includegraphics[width=4cm]{../report/logo.png}
+
+\vspace{2\baselineskip}
+\textbf{\MakeUppercase{Отчёт по преддипломной практике}}
+
+\vspace{\baselineskip}
+на тему \textbf{«Разработка интерактивной программы визуализации движения частиц в полях скоростей»}
+\end{center}
+
+\vspace{2\baselineskip}
+
+\noindent\hspace*{6.25cm}%
+\begin{minipage}{\dimexpr\textwidth-6.25cm\relax}
+\setlength{\parindent}{0pt}
+\textbf{Выполнил:}\par
+студент 4 курса естественно-научного факультета направления подготовки 01.03.02~Прикладная математика и информатика\par
+Гальчанский Данила Андреевич
+
+\vspace{\baselineskip}
+
+\textbf{Руководитель практики:}\par
+кандидат физико-математических наук, доцент кафедры вычислительной математики МГУ имени М.\,В.\,Ломоносова\par
+Ложников Михаил Андреевич
+\end{minipage}
+
+\vfill
+
+\begin{center}
+Душанбе -- \the\year
+\end{center}
+\end{titlepage}
+
+\end{document}
