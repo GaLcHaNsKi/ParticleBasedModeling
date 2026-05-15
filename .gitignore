@@ -6,3 +6,5 @@ density
 *.toc
 *.log
 *.aux
+*.nav
+*.snm
