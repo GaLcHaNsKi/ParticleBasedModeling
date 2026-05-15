@@ -7,7 +7,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
-from particle import Particle
+from particle import MIN_RADIUS, Particle, RO_PAR
 from vector_field import Vec2, VectorField
 
 
@@ -24,6 +24,15 @@ class FieldWidget(QWidget):
         self.show_trails = True
         self.paused = False
         self.streamline_quality = 55
+        self.hover_world: Vec2 | None = None
+        self.spawn_radius = MIN_RADIUS + 5e-5
+        self.spawn_density = RO_PAR
+        self.spawn_velocity = Vec2(0.0, 0.0)
+        self.continuous_source_enabled = False
+        self.continuous_source_active = False
+        self.continuous_source_position: Vec2 | None = None
+        self._source_spawn_interval = 1.0 / 18.0
+        self._source_spawn_accumulator = 0.0
 
         self.world_rect = QRectF(-30.0, -30.0, 60.0, 60.0)
         self.streamlines: list[list[Vec2]] = []
@@ -46,6 +55,19 @@ class FieldWidget(QWidget):
 
     def clear_particles(self) -> None:
         self.particles.clear()
+        self.update()
+
+    def set_particle_spawn_parameters(self, radius: float, density: float, velocity_x: float, velocity_y: float) -> None:
+        self.spawn_radius = max(radius, MIN_RADIUS)
+        self.spawn_density = max(density, 1.0)
+        self.spawn_velocity = Vec2(velocity_x, velocity_y)
+
+    def set_continuous_source_enabled(self, enabled: bool) -> None:
+        self.continuous_source_enabled = enabled
+        if not enabled:
+            self.continuous_source_active = False
+            self.continuous_source_position = None
+            self._source_spawn_accumulator = 0.0
         self.update()
 
     def set_show_arrows(self, enabled: bool) -> None:
@@ -81,13 +103,37 @@ class FieldWidget(QWidget):
         if self.show_trails:
             self._draw_trails(painter)
         self._draw_particles(painter)
+        self._draw_cursor_probe(painter)
         self._draw_overlay(painter)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.LeftButton:
             position = self._screen_to_world(event.position())
-            self.particles.append(Particle(q=position))
+            self.hover_world = position
+            if self.continuous_source_enabled:
+                self.continuous_source_active = True
+                self.continuous_source_position = position
+                self._source_spawn_accumulator = 0.0
+            self._spawn_particle(position)
             self.update()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        self.hover_world = self._screen_to_world(event.position())
+        if self.continuous_source_active:
+            self.continuous_source_position = self.hover_world
+        self.update()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.LeftButton:
+            self.continuous_source_active = False
+        super().mouseReleaseEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self.hover_world = None
+        if not self.continuous_source_active:
+            self.continuous_source_position = None
+        super().leaveEvent(event)
+        self.update()
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
@@ -113,7 +159,23 @@ class FieldWidget(QWidget):
             self._accumulator -= self._sim_dt
             simulated_steps += 1
 
+        if self.continuous_source_active and self.continuous_source_position is not None:
+            self._source_spawn_accumulator += elapsed
+            while self._source_spawn_accumulator >= self._source_spawn_interval:
+                self._spawn_particle(self.continuous_source_position)
+                self._source_spawn_accumulator -= self._source_spawn_interval
+
         self.update()
+
+    def _spawn_particle(self, position: Vec2) -> None:
+        self.particles.append(
+            Particle(
+                q=position,
+                v=self.spawn_velocity,
+                radius=self.spawn_radius,
+                density=self.spawn_density,
+            )
+        )
 
     def _draw_background_grid(self, painter: QPainter) -> None:
         painter.save()
@@ -178,12 +240,12 @@ class FieldWidget(QWidget):
             points = list(particle.trail)
             if len(points) < 2:
                 continue
-            path = QPainterPath()
-            path.moveTo(self._world_to_screen(points[0]))
-            for point in points[1:]:
-                path.lineTo(self._world_to_screen(point))
-            painter.setPen(QPen(QColor("#dc2626"), 1.7))
-            painter.drawPath(path)
+            segment_count = len(points) - 1
+            for index, (start_point, end_point) in enumerate(zip(points, points[1:])):
+                alpha_ratio = (index + 1) / max(segment_count, 1)
+                alpha = int(28 + alpha_ratio * 190)
+                painter.setPen(QPen(QColor(220, 38, 38, alpha), 1.7))
+                painter.drawLine(self._world_to_screen(start_point), self._world_to_screen(end_point))
         painter.restore()
 
     def _draw_particles(self, painter: QPainter) -> None:
@@ -205,7 +267,51 @@ class FieldWidget(QWidget):
             f"Гладкость: {self.streamline_quality}"
         )
         painter.drawText(16, 28, text)
-        painter.drawText(16, 48, "ЛКМ: создать частицу")
+        source_mode = "вкл" if self.continuous_source_enabled else "выкл"
+        painter.drawText(16, 48, f"ЛКМ: частица    Непрерывный источник: {source_mode}")
+
+        if self.hover_world is not None:
+            velocity = self.field.velocity(self.hover_world)
+            probe_text = (
+                f"x = {self.hover_world.x:7.2f}, y = {self.hover_world.y:7.2f}    "
+                f"u = ({velocity.x:7.2f}, {velocity.y:7.2f})    |u| = {velocity.length():6.2f}"
+            )
+            metrics = painter.fontMetrics()
+            padding = 10
+            box_width = metrics.horizontalAdvance(probe_text) + padding * 2
+            box_height = metrics.height() + padding * 2
+            x = self.width() - box_width - 16
+            y = self.height() - box_height - 16
+            painter.fillRect(QRectF(x, y, box_width, box_height), QColor(255, 255, 255, 220))
+            painter.setPen(QColor("#111827"))
+            painter.drawText(int(x + padding), int(y + padding + metrics.ascent()), probe_text)
+        painter.restore()
+
+    def _draw_cursor_probe(self, painter: QPainter) -> None:
+        if self.hover_world is None:
+            return
+
+        velocity = self.field.velocity(self.hover_world)
+        if not velocity.is_finite() or velocity.length() < 1e-6:
+            return
+
+        painter.save()
+        probe_pen = QPen(QColor("#b45309"), 2.2)
+        probe_pen.setCosmetic(True)
+        painter.setPen(probe_pen)
+
+        arrow_length = max(1.4, min(velocity.length() * 0.22, 4.0))
+        head = self.hover_world + velocity.normalized() * arrow_length
+        center = self._world_to_screen(self.hover_world)
+        painter.drawEllipse(center, 4.0, 4.0)
+        painter.drawLine(center, self._world_to_screen(head))
+        self._draw_arrow_head(painter, self.hover_world, head, arrow_size=0.9)
+
+        if self.continuous_source_active and self.continuous_source_position is not None:
+            source_center = self._world_to_screen(self.continuous_source_position)
+            painter.setPen(QPen(QColor("#7c3aed"), 2.0))
+            painter.drawEllipse(source_center, 6.5, 6.5)
+
         painter.restore()
 
     def _draw_arrow_head(self, painter: QPainter, tail: Vec2, head: Vec2, arrow_size: float = 0.7) -> None:

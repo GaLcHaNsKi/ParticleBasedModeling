@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -105,11 +106,53 @@ class MainWindow(QMainWindow):
         clear_button.clicked.connect(self.render_widget.clear_particles)
         actions_layout.addWidget(clear_button)
 
+        particle_box = QGroupBox("Параметры частицы", self)
+        particle_layout = QFormLayout(particle_box)
+
+        self.radius_spin = QDoubleSpinBox(self)
+        self.radius_spin.setRange(0.05, 5.0)
+        self.radius_spin.setDecimals(3)
+        self.radius_spin.setSingleStep(0.01)
+        self.radius_spin.setSuffix(" мм")
+        self.radius_spin.setValue(0.10)
+
+        self.density_spin = QDoubleSpinBox(self)
+        self.density_spin.setRange(10.0, 10000.0)
+        self.density_spin.setDecimals(1)
+        self.density_spin.setSingleStep(50.0)
+        self.density_spin.setSuffix(" кг/м³")
+        self.density_spin.setValue(2500.3)
+
+        self.initial_vx_spin = QDoubleSpinBox(self)
+        self.initial_vx_spin.setRange(-500.0, 500.0)
+        self.initial_vx_spin.setDecimals(2)
+        self.initial_vx_spin.setSingleStep(0.5)
+        self.initial_vx_spin.setSuffix(" м/с")
+
+        self.initial_vy_spin = QDoubleSpinBox(self)
+        self.initial_vy_spin.setRange(-500.0, 500.0)
+        self.initial_vy_spin.setDecimals(2)
+        self.initial_vy_spin.setSingleStep(0.5)
+        self.initial_vy_spin.setSuffix(" м/с")
+
+        self.continuous_source_checkbox = QCheckBox("Непрерывный источник (удержание ЛКМ)", self)
+        self.continuous_source_checkbox.toggled.connect(self.render_widget.set_continuous_source_enabled)
+
+        particle_layout.addRow("Радиус", self.radius_spin)
+        particle_layout.addRow("Плотность", self.density_spin)
+        particle_layout.addRow("Начальная v_x", self.initial_vx_spin)
+        particle_layout.addRow("Начальная v_y", self.initial_vy_spin)
+        particle_layout.addRow(self.continuous_source_checkbox)
+
+        for widget in (self.radius_spin, self.density_spin, self.initial_vx_spin, self.initial_vy_spin):
+            widget.valueChanged.connect(self._update_particle_parameters)
+
         hint = QLabel("", self)
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #4b5563;")
 
         panel_layout.addWidget(field_box)
+        panel_layout.addWidget(particle_box)
         panel_layout.addWidget(display_box)
         panel_layout.addWidget(actions_box)
         panel_layout.addWidget(hint)
@@ -119,6 +162,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.render_widget, 1)
 
         self._toggle_custom_inputs(False)
+        self._update_particle_parameters()
 
     def _sync_field_description(self) -> None:
         key = self.field_combo.currentData()
@@ -143,3 +187,12 @@ class MainWindow(QMainWindow):
     def _update_streamline_quality(self, value: int) -> None:
         self.streamline_quality_label.setText(f"Гладкость линий: {value}")
         self.render_widget.set_streamline_quality(value)
+
+    def _update_particle_parameters(self) -> None:
+        radius_meters = self.radius_spin.value() * 1e-3
+        self.render_widget.set_particle_spawn_parameters(
+            radius_meters,
+            self.density_spin.value(),
+            self.initial_vx_spin.value(),
+            self.initial_vy_spin.value(),
+        )

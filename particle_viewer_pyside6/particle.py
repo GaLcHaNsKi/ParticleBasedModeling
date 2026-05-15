@@ -22,13 +22,14 @@ class Particle:
     q: Vec2
     v: Vec2 = field(default_factory=lambda: Vec2(0.0, 0.0))
     radius: float = field(default_factory=lambda: MIN_RADIUS + random.uniform(0.0, 1e-4))
+    density: float = RO_PAR
     trail: deque[Vec2] = field(default_factory=lambda: deque(maxlen=MAX_TRAIL_POINTS))
     reynolds: float = 0.0
     drag_coefficient: float = 0.0
     alive: bool = True
 
     def __post_init__(self) -> None:
-        self.mass = (4.0 / 3.0) * math.pi * self.radius ** 3 * RO_PAR
+        self.mass = (4.0 / 3.0) * math.pi * self.radius ** 3 * self.density
         self.trail.append(self.q)
 
     def step(self, dt: float, field: VectorField) -> bool:
